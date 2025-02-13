@@ -29,7 +29,7 @@ class CheemsSmash:
         self.status = 0
         # Initialize screen
         self.screen = pygame.display.set_mode((self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
-        pygame.display.set_caption("Zombies Smash")
+        pygame.display.set_caption("Scary Cheems Smash")
         self.start_bg = pygame.image.load("img/start1.jpg")
         self.background = pygame.image.load("img/bg3.png")
         icon = pygame.image.load("img/logo.jpg")
@@ -45,14 +45,28 @@ class CheemsSmash:
         self.font_obj = pygame.font.Font("./fonts/PS.ttf", self.FONT_SIZE)
         self.font_start = pygame.font.Font("./fonts/BW.ttf", 50)
         # Initialize the zombies's sprite sheet
-        sprite_sheet = pygame.image.load("img/zombies.png")
-        self.zombies = []
-        self.zombies.append(sprite_sheet.subsurface(853, 0, 10, 10))
-        self.zombies.append(sprite_sheet.subsurface(310, 0, 120, 100))
-        self.zombies.append(sprite_sheet.subsurface(455, 0, 120, 100))
-        self.zombies.append(sprite_sheet.subsurface(580, 0, 120, 100))
-        self.zombies.append(sprite_sheet.subsurface(722, 0, 120, 100))
-        self.zombies.append(sprite_sheet.subsurface(853, 0, 120, 100))
+        # Load the original image
+        normal_cheems = pygame.image.load("img/cheems.png")
+        bonked_cheems = pygame.image.load("img/bonked_cheems.png")
+
+        # Get the dimensions of the original image
+        original_width, original_height = normal_cheems.get_size()
+
+        # Cut the image in half by height (use the top half)
+        half_height = original_height // 2
+        top_half = normal_cheems.subsurface((0, 0, original_width, half_height))
+
+        # Scale the top half to the desired size
+        new_width = 95  # Adjust to match the hole width
+        new_height = 95  # Adjust to match the hole height
+        scaled_cheems = pygame.transform.scale(top_half, (new_width, new_height))
+        self.bonked_cheems = pygame.transform.scale(bonked_cheems, (new_width, new_height))  # Scale to match the original sprite size
+        self.is_hit = False  # Track whether the sprite has been hit
+        self.hit_timer = 0  # Timer to track how long the "bonked" image is displayed
+
+        # Store the scaled sprite in the list
+        self.cheems = [scaled_cheems] * 6  # Create a list with 6 scaled sprites
+        self.cheems.append(bonked_cheems)
         
         self.hammer_mouse = pygame.image.load("img/hammer_mouse.png")
         self.hammer_smash = pygame.image.load("img/hammer_smash.png")
@@ -151,14 +165,17 @@ class CheemsSmash:
         current_hole_x = current_hole_position[0]
         current_hole_y = current_hole_position[1]
         if (mouse_x > current_hole_x) and (mouse_x < current_hole_x + self.ZOMBIE_WIDTH) and (mouse_y > current_hole_y - 50) and (mouse_y < current_hole_y + self.ZOMBIE_HEIGHT):
+            self.is_hit = True  # Set the hit flag
+            self.hit_timer = 0.5  # Display the "bonked" image for 0.5 seconds
+
             return True
         else:
             return False      
-        
+    
     # Update the game states, re-calculate the player's score, misses, level
     def update(self):
         # Update the player's miss zombie
-        current_score_string = "MISSED ZOMBIE: " + str(self.misszombie)
+        current_score_string = "MISSED CHEEMS: " + str(self.misszombie)
         score_text = self.font_obj.render(current_score_string, True, (128, 128, 128))
         score_text_pos = score_text.get_rect()
         score_text_pos.centerx = self.SCREEN_WIDTH / 5 * 4
@@ -200,13 +217,15 @@ class CheemsSmash:
         is_down = True
         interval = 0.1
         initial_interval = 1
+        clock = pygame.time.Clock()
+        dt = 0  # Time since last frame
 
         clock = pygame.time.Clock()
         pic = None
         click = False
         click_point = False     
                 
-        while self.is_playing:
+        while self.is_playing: 
             # misszombie - 1
             if self.misszombie == 10 or self.misses == 100:
                 self.soundEffect.playGameover()
@@ -233,7 +252,7 @@ class CheemsSmash:
                 if event.type == MOUSEBUTTONDOWN and event.button == self.LEFT_MOUSE_BUTTON:  
                     self.soundEffect.playFire()
                     click = True               
-                    self.screen.blit(self.zombies[4], pygame.mouse.get_pos())
+                    self.screen.blit(self.cheems[6], pygame.mouse.get_pos())
                     
                     if self.is_zombie_hit(mouse.get_pos(), self.hole_positions[hole_num]) and num > 0 and is_down == True:
                         click = True  
@@ -282,7 +301,7 @@ class CheemsSmash:
             cycle_time += sec
             
             if cycle_time > interval:
-                pic = self.zombies[num]
+                pic = self.cheems[num]
                 self.screen.blit(self.background, (0, 0)) 
                 self.screen.blit(pic, (self.hole_positions[hole_num][0], self.hole_positions[hole_num][1])) 
                 if is_down is False:
@@ -352,7 +371,7 @@ class SoundEffect:
         self.fireSound = pygame.mixer.Sound("sounds/fire.wav")
         self.fireSound.set_volume(1)
         self.popSound = pygame.mixer.Sound("sounds/pop.wav")
-        self.hurtSound = pygame.mixer.Sound("sounds/point.wav")
+        self.hurtSound = pygame.mixer.Sound("sounds/bonk-sound-effect.mp3")
         self.levelSound = pygame.mixer.Sound("sounds/levelup.mp3")
         self.gameOver = pygame.mixer.Sound("sounds/gameover.wav")
         pygame.mixer.music.play(-1)
